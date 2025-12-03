@@ -1,5 +1,5 @@
-import { CreditCardParser } from './CreditCardParser';
-import { BankStatementParser } from './BankStatementParser';
+import { CreditCardParser } from './creditCardParser';
+import { BankStatementParser } from './bankStatementParser';
 import { AIParser } from './AIParser';
 
 export function getParserForFile(text, filename, cardMappings = [], options = {}) {
