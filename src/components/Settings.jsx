@@ -4,7 +4,8 @@ import { Plus, Trash2, Save, Cloud, Upload, Download, LogIn, LogOut } from 'luci
 import { db } from '../db';
 import { useSync } from '../context/SyncContext';
 
-import UserManager from './UserManager';
+import MemberManager from './MemberManager';
+import PaymentMethodManager from './PaymentMethodManager';
 import CategoryManager from './CategoryManager';
 
 export default function Settings({ settings, onSave, profileId }) {
@@ -18,7 +19,8 @@ export default function Settings({ settings, onSave, profileId }) {
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <h2 style={{ marginBottom: '2rem' }}>Configuración</h2>
 
-            <UserManager profileId={profileId} />
+            <MemberManager profileId={profileId} />
+            <PaymentMethodManager profileId={profileId} />
             <CategoryManager profileId={profileId} />
             <div>
                 <h3 style={{ marginBottom: '0.5rem' }}>Tipo de Cambio (USD a ARS)</h3>
@@ -33,6 +35,30 @@ export default function Settings({ settings, onSave, profileId }) {
                     style={{ width: '100px', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-bg-tertiary)', textAlign: 'right' }}
                 />
                 <span>ARS</span>
+                <button
+                    onClick={async () => {
+                        const { fetchExchangeRates } = await import('../utils/currencyUtils');
+                        const rates = await fetchExchangeRates();
+                        if (rates && rates.blue) {
+                            setExchangeRate(rates.blue);
+                            alert(`Actualizado a Dólar Blue: $${rates.blue}`);
+                        } else {
+                            alert('No se pudo obtener la cotización.');
+                        }
+                    }}
+                    style={{
+                        marginLeft: '1rem',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        border: 'none',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        display: 'flex', alignItems: 'center', gap: '0.25rem'
+                    }}
+                >
+                    🔄 Auto (Blue)
+                </button>
             </div>
 
             {/* AI Configuration */}
@@ -114,9 +140,9 @@ export default function Settings({ settings, onSave, profileId }) {
                                 const orphanedCats = await db.categories.filter(c => !c.profileId).toArray();
                                 await db.categories.bulkPut(orphanedCats.map(c => ({ ...c, profileId })));
 
-                                // 2. Owners
-                                const orphanedOwners = await db.owners.filter(o => !o.profileId).toArray();
-                                await db.owners.bulkPut(orphanedOwners.map(o => ({ ...o, profileId })));
+                                // 2. Members
+                                const orphanedMembers = await db.members.filter(m => !m.profileId).toArray();
+                                await db.members.bulkPut(orphanedMembers.map(m => ({ ...m, profileId })));
 
                                 // 3. Transactions
                                 const orphanedTrans = await db.transactions.filter(t => !t.profileId).toArray();
@@ -126,7 +152,7 @@ export default function Settings({ settings, onSave, profileId }) {
                                 const orphanedRules = await db.rules.filter(r => !r.profileId).toArray();
                                 await db.rules.bulkPut(orphanedRules.map(r => ({ ...r, profileId })));
 
-                                alert(`Migrado:\n${orphanedCats.length} Categorías\n${orphanedOwners.length} Dueños\n${orphanedTrans.length} Transacciones\n${orphanedRules.length} Reglas`);
+                                alert(`Migrado:\n${orphanedCats.length} Categorías\n${orphanedMembers.length} Usuarios\n${orphanedTrans.length} Transacciones\n${orphanedRules.length} Reglas`);
                             } catch (e) {
                                 console.error(e);
                                 alert('Error migrando datos: ' + e.message);

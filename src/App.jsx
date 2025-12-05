@@ -11,12 +11,13 @@ import Settings from './components/Settings'
 import ProfileSwitcher from './components/ProfileSwitcher'
 import ImportReview from './components/ImportReview'
 import ImportManager from './components/ImportManager'
-import SubscriptionAnalysis from './components/SubscriptionAnalysis'
+
 import { extractTextFromPdf } from './utils/pdfParser'
 import { getParserForFile } from './utils/parsers/parserFactory'
 import { categorizeTransaction } from './utils/categorizer'
 import { detectAccountAndOwner } from './utils/accountDetector'
 import { SyncProvider } from './context/SyncContext'
+import OnboardingTutorial from './components/OnboardingTutorial'
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,12 +26,34 @@ function AppContent() {
   const [profileId, setProfileId] = useState(null);
   const [pendingTransactions, setPendingTransactions] = useState(null); // For review screen
   const [editingFile, setEditingFile] = useState(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Load profile from localStorage
   useEffect(() => {
     const savedProfile = localStorage.getItem('activeProfileId');
     if (savedProfile) setProfileId(parseInt(savedProfile));
+
+    // Check tutorial status
+    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+    }
+
+    // Auto-fetch exchange rate if not set or old?
+    // For now just try to fetch on load to keep it fresh
+    import('./utils/currencyUtils').then(({ fetchExchangeRates }) => {
+      fetchExchangeRates().then(rates => {
+        if (rates && rates.blue) {
+          setSettings(prev => ({ ...prev, exchangeRate: rates.blue }));
+        }
+      });
+    });
   }, []);
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenTutorial', 'true');
+  };
 
   const handleSelectProfile = (id) => {
     setProfileId(id);
@@ -48,8 +71,13 @@ function AppContent() {
     [profileId]
   ) || [];
 
-  const owners = useLiveQuery(
-    () => profileId ? db.owners.where('profileId').equals(profileId).toArray() : [],
+  const members = useLiveQuery(
+    () => profileId ? db.members.where('profileId').equals(profileId).toArray() : [],
+    [profileId]
+  );
+
+  const paymentMethods = useLiveQuery(
+    () => profileId ? db.paymentMethods.where('profileId').equals(profileId).toArray() : [],
     [profileId]
   );
 
@@ -229,6 +257,14 @@ function AppContent() {
     }
   };
 
+  const handleCreatePaymentMethod = async (name, type = 'credit_card', currency = 'ARS') => {
+    if (!profileId) return;
+    const exists = paymentMethods.some(pm => pm.name.toLowerCase() === name.toLowerCase() && pm.profileId === profileId);
+    if (!exists) {
+      await db.paymentMethods.add({ name, type, currency, profileId });
+    }
+  };
+
   const handleEditFile = async (filename) => {
     const fileTransactions = await db.transactions
       .where('profileId').equals(profileId)
@@ -272,6 +308,10 @@ function AppContent() {
     await db.transactions.update(id, newUpdates);
   };
 
+  const handleDeleteTransaction = async (id) => {
+    await db.transactions.delete(id);
+  };
+
   const handleDeleteAll = async () => {
     if (window.confirm('Are you sure you want to delete ALL transactions for this profile? This cannot be undone.')) {
       await db.transactions.where('profileId').equals(profileId).delete();
@@ -298,6 +338,7 @@ function AppContent() {
               exchangeRate={settings.exchangeRate}
               categories={categories}
               subcategories={subcategories}
+              paymentMethods={paymentMethods}
             />
           </div>
         );
@@ -305,14 +346,15 @@ function AppContent() {
         return <TransactionList
           transactions={transactions}
           onUpdateTransaction={handleUpdateTransaction}
+          onDeleteTransaction={handleDeleteTransaction}
           categories={categories}
           subcategories={subcategories}
-          owners={owners}
+          members={members}
+          paymentMethods={paymentMethods}
         />;
       case 'analytics':
         return <Analytics transactions={transactions} exchangeRate={settings.exchangeRate} />;
-      case 'subscriptions':
-        return <SubscriptionAnalysis transactions={transactions} exchangeRate={settings.exchangeRate} />;
+
       case 'imports':
         return (
           <ImportManager
@@ -354,11 +396,13 @@ function AppContent() {
             setPendingTransactions(null);
             setEditingFile(null);
           }}
-          owners={owners}
+          members={members}
+          paymentMethods={paymentMethods}
           categories={categories}
           subcategories={subcategories}
           settings={settings}
           onCreateCategory={handleCreateCategory}
+          onCreatePaymentMethod={handleCreatePaymentMethod}
         />
       )}
       <Layout activeTab={activeTab} onTabChange={setActiveTab}>
@@ -415,6 +459,8 @@ function AppContent() {
           </div>
         </div>
       )}
+
+      {showTutorial && <OnboardingTutorial onComplete={handleTutorialComplete} />}
     </>
   )
 }

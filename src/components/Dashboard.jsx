@@ -4,7 +4,7 @@ import { AVAILABLE_WIDGETS } from './dashboard/WidgetRegistry';
 
 export default function Dashboard({ transactions, exchangeRate, categories, subcategories }) {
     // Default widgets
-    const DEFAULT_WIDGETS = ['category_chart', 'monthly_flow_chart', 'owner_chart', 'top_expenses_chart'];
+    const DEFAULT_WIDGETS = ['finpilot_suggestions', 'category_chart', 'monthly_flow_chart', 'owner_chart', 'top_expenses_chart'];
 
     const [activeWidgetIds, setActiveWidgetIds] = useState(() => {
         const saved = localStorage.getItem('dashboardWidgets');

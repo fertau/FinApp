@@ -22,9 +22,41 @@ export function SyncProvider({ children }) {
             setLoading(false);
             return;
         }
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
             setLoading(false);
+
+            // Auto-restore check
+            if (currentUser) {
+                try {
+                    // 1. Check if local DB is empty
+                    const txCount = await localDb.transactions.count();
+                    const profileCount = await localDb.profiles.count();
+                    const isEmpty = txCount === 0 && profileCount <= 1; // Allow default profile
+
+                    // 2. Check if cloud backup exists
+                    const backupRef = doc(db, 'users', currentUser.uid, 'backups', 'latest');
+                    const docSnap = await getDoc(backupRef);
+
+                    if (docSnap.exists()) {
+                        if (isEmpty) {
+                            // Scenario A: Empty local, Backup exists -> Auto Restore
+                            console.log("Auto-restoring from cloud...");
+                            await restoreData(true); // true = silent/auto mode
+                        } else {
+                            // Scenario B: Data exists -> Prompt
+                            // We use a small timeout to let the UI settle
+                            setTimeout(() => {
+                                if (window.confirm("¡Hola! Encontramos una copia de seguridad en la nube. ¿Quieres restaurarla? (Esto reemplazará tus datos locales actuales)")) {
+                                    restoreData();
+                                }
+                            }, 1000);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error checking for auto-restore:", e);
+                }
+            }
         });
         return unsubscribe;
     }, []);
@@ -58,7 +90,7 @@ export function SyncProvider({ children }) {
         // But simpler: 'useLiveQuery' triggers on changes. We can't easily hook into that globally for *any* change without re-rendering.
 
         // Let's assume we can attach a hook to all tables.
-        const tables = ['transactions', 'categories', 'owners', 'rules', 'profiles', 'cardMappings'];
+        const tables = ['transactions', 'categories', 'members', 'paymentMethods', 'rules', 'profiles', 'cardMappings'];
 
         const hook = () => {
             handleChange();
@@ -110,10 +142,10 @@ export function SyncProvider({ children }) {
             const userId = user.uid;
             const batch = writeBatch(db);
 
-            // 1. Get all local data
             const transactions = await localDb.transactions.toArray();
             const categories = await localDb.categories.toArray();
-            const owners = await localDb.owners.toArray();
+            const members = await localDb.members.toArray();
+            const paymentMethods = await localDb.paymentMethods.toArray();
             const rules = await localDb.rules.toArray();
             const profiles = await localDb.profiles.toArray();
 
@@ -124,7 +156,8 @@ export function SyncProvider({ children }) {
                 lastSync: new Date().toISOString(),
                 profileCount: profiles.length,
                 categories: categories,
-                owners: owners,
+                members: members,
+                paymentMethods: paymentMethods,
                 rules: rules,
                 profiles: profiles
             }, { merge: true });
@@ -135,7 +168,8 @@ export function SyncProvider({ children }) {
             const backupData = {
                 transactions: sanitize(transactions),
                 categories: sanitize(categories),
-                owners: sanitize(owners),
+                members: sanitize(members),
+                paymentMethods: sanitize(paymentMethods),
                 rules: sanitize(rules),
                 profiles: sanitize(profiles),
                 timestamp: new Date().toISOString()
@@ -161,9 +195,9 @@ export function SyncProvider({ children }) {
         }
     };
 
-    const restoreData = async () => {
+    const restoreData = async (isSilent = false) => {
         if (!user || !db) return;
-        if (!window.confirm("Esto SOBREESCRIBIRÁ tus datos locales con la copia de la nube. ¿Estás seguro?")) return;
+        if (!isSilent && !window.confirm("Esto SOBREESCRIBIRÁ tus datos locales con la copia de la nube. ¿Estás seguro?")) return;
 
         setSyncing(true);
         try {
@@ -173,29 +207,41 @@ export function SyncProvider({ children }) {
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
+                console.log("Backup found:", data); // DEBUG
 
                 await localDb.transaction('rw', localDb.tables, async () => {
                     await localDb.transactions.clear();
                     await localDb.categories.clear();
-                    await localDb.owners.clear();
+                    await localDb.members.clear();
+                    await localDb.paymentMethods.clear();
+                    // await localDb.owners.clear(); // Deprecated
                     await localDb.rules.clear();
                     await localDb.profiles.clear();
 
-                    await localDb.transactions.bulkAdd(data.transactions);
-                    await localDb.categories.bulkAdd(data.categories);
-                    await localDb.owners.bulkAdd(data.owners);
-                    await localDb.rules.bulkAdd(data.rules);
-                    await localDb.profiles.bulkAdd(data.profiles);
+                    console.log("Restoring transactions:", data.transactions?.length);
+                    await localDb.transactions.bulkAdd(data.transactions || []);
+                    await localDb.categories.bulkAdd(data.categories || []);
+
+                    // Handle migration: if backup has 'owners' but not 'members', use 'owners'
+                    const membersToRestore = data.members || data.owners || [];
+                    console.log("Restoring members:", membersToRestore);
+                    await localDb.members.bulkAdd(membersToRestore);
+
+                    await localDb.paymentMethods.bulkAdd(data.paymentMethods || []);
+
+                    await localDb.rules.bulkAdd(data.rules || []);
+                    await localDb.profiles.bulkAdd(data.profiles || []);
                 });
 
-                alert("Datos restaurados correctamente!");
+                if (!isSilent) alert("Datos restaurados correctamente!");
                 window.location.reload();
             } else {
-                alert("No se encontró copia de seguridad en la nube.");
+                console.log("No backup found at path:", backupRef.path);
+                if (!isSilent) alert("No se encontró copia de seguridad en la nube.");
             }
         } catch (error) {
             console.error("Restore error:", error);
-            alert("Error al restaurar: " + error.message);
+            if (!isSilent) alert("Error al restaurar: " + error.message);
         } finally {
             setSyncing(false);
         }

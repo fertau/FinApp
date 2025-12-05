@@ -15,7 +15,7 @@ export default function ProfileSwitcher({ currentProfileId, onSelectProfile }) {
             const id = await db.profiles.add({ name: newProfileName.trim() });
 
             // Seed default data for the new profile
-            await db.owners.add({ name: 'Yo', profileId: id });
+            await db.members.add({ name: 'Yo', profileId: id });
 
             const defaultCategories = [
                 { name: 'Comida', type: 'expense', color: '#FFBB28' },
@@ -50,13 +50,13 @@ export default function ProfileSwitcher({ currentProfileId, onSelectProfile }) {
 
     const deleteProfile = async (id, name) => {
         if (window.confirm(`¿Estás seguro de que quieres eliminar el perfil "${name}" y todos sus datos?`)) {
-            await db.transaction('rw', db.profiles, db.transactions, db.categories, db.subcategories, db.owners, db.rules, db.cardMappings, async () => {
+            await db.transaction('rw', db.profiles, db.transactions, db.categories, db.subcategories, db.members, db.rules, db.cardMappings, async () => {
                 await db.profiles.delete(id);
                 await db.transactions.where('profileId').equals(id).delete();
                 await db.categories.where('profileId').equals(id).delete();
                 // Note: subcategories don't have profileId in current schema, they are global or linked to category? 
                 // Schema check needed. Assuming categories cascade or subcategories are global.
-                await db.owners.where('profileId').equals(id).delete();
+                await db.members.where('profileId').equals(id).delete();
                 await db.rules.where('profileId').equals(id).delete();
                 await db.cardMappings.where('profileId').equals(id).delete();
             });

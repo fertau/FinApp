@@ -177,7 +177,14 @@ export class CreditCardParser extends BaseParser {
                 }
 
                 const transaction = this.createTransaction(date, description, amount, trimmedLine, currency);
-                transaction.type = type;
+
+                if (type === 'payment') {
+                    transaction.type = 'EXCLUDED';
+                    // We can store originalType if we want to allow restoring it as payment later
+                    transaction.originalType = 'payment';
+                } else {
+                    transaction.type = type;
+                }
 
                 // Add Metadata
                 if (metadata.bank) transaction.bank = metadata.bank;

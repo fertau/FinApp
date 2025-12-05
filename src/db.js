@@ -1,15 +1,25 @@
 import Dexie from 'dexie';
 
-export const db = new Dexie('FinanceDB');
+export const db = new Dexie('FinanceAnalyzerDB');
 
-db.version(3).stores({
-    profiles: '++id, name', // System Users (e.g. "Familia", "Negocio")
-    owners: '++id, name, profileId', // People who spend (e.g. "Fernando", "Jesi")
-    categories: '++id, name, type, color, profileId',
-    subcategories: '++id, categoryId, name',
+db.version(1).stores({
+    profiles: '++id, name',
+    owners: '++id, name, profileId',
+    categories: '++id, name, profileId',
+    subcategories: '++id, name, categoryId',
+    transactions: '++id, date, description, amount, owner, category, profileId',
     rules: '++id, keyword, categoryId, subcategoryId, profileId',
-    cardMappings: '++id, last4, owner, profileId', // Map card digits to Owner Name
-    transactions: '++id, date, description, amount, currency, owner, account, category, type, sourceFile, profileId, isExtraordinary, accrualPeriod'
+    cardMappings: '++id, last4, owner, bank, profileId'
+});
+
+// Version 2: Add 'sourceFile' to transactions
+db.version(2).stores({
+    transactions: '++id, date, description, amount, owner, category, profileId, sourceFile'
+});
+
+// Version 3: Add 'isExtraordinary' and 'accrualPeriod'
+db.version(3).stores({
+    transactions: '++id, date, description, amount, owner, category, profileId, sourceFile, isExtraordinary, accrualPeriod'
 }).upgrade(tx => {
     // Migration logic: Set defaults for existing transactions
     return tx.table('transactions').toCollection().modify(t => {
@@ -18,24 +28,34 @@ db.version(3).stores({
     });
 });
 
-// Populate default data
-db.on('populate', () => {
-    db.profiles.add({ name: 'Default Profile' });
+// Version 4: Rename 'owners' to 'members' and remove hardcoded seeding
+db.version(4).stores({
+    members: '++id, name, profileId',
+    owners: '++id, name, profileId', // Keep it for now to allow migration
+    paymentMethods: '++id, name, type, currency, profileId' // New for Phase 2
+}).upgrade(async tx => {
+    const owners = await tx.table('owners').toArray();
+    if (owners.length > 0) {
+        await tx.table('members').bulkAdd(owners);
+        // We can clear owners if we want, but let's leave it as backup for this session
+    }
+});
 
-    db.owners.bulkAdd([
-        { name: 'Fernando', profileId: 1 },
-        { name: 'Jesi', profileId: 1 },
-        { name: 'Elías', profileId: 1 }
+// Populate default data only if fresh install
+db.on('populate', async () => {
+    // Default Profile
+    const profileId = await db.profiles.add({ name: 'Personal' });
+
+    // Default Categories
+    await db.categories.bulkAdd([
+        { name: 'Comida', type: 'expense', profileId, color: '#F59E0B' },
+        { name: 'Transporte', type: 'expense', profileId, color: '#3B82F6' },
+        { name: 'Servicios', type: 'expense', profileId, color: '#10B981' },
+        { name: 'Salud', type: 'expense', profileId, color: '#EF4444' },
+        { name: 'Entretenimiento', type: 'expense', profileId, color: '#8B5CF6' },
+        { name: 'Compras', type: 'expense', profileId, color: '#EC4899' },
+        { name: 'Educación', type: 'expense', profileId, color: '#6366F1' }
     ]);
 
-    db.categories.bulkAdd([
-        { name: 'Comida', type: 'expense', color: '#FFBB28', profileId: 1 },
-        { name: 'Transporte', type: 'expense', color: '#FF8042', profileId: 1 },
-        { name: 'Hogar', type: 'expense', color: '#00C49F', profileId: 1 },
-        { name: 'Servicios', type: 'expense', color: '#0088FE', profileId: 1 },
-        { name: 'Entretenimiento', type: 'expense', color: '#8884d8', profileId: 1 },
-        { name: 'Salud', type: 'expense', color: '#ff7300', profileId: 1 },
-        { name: 'Ingresos', type: 'income', color: '#82ca9d', profileId: 1 },
-        { name: 'Varios', type: 'expense', color: '#a4de6c', profileId: 1 }
-    ]);
+    // No default members/owners seeded! User must create them or they are created on import.
 });

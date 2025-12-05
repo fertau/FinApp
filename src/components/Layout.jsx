@@ -96,7 +96,7 @@ export default function Layout({ children, activeTab, onTabChange }) {
                     }}>
                         <FileText size={20} />
                     </div>
-                    <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Expense Tracker</h1>
+                    <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>FinPilot</h1>
                 </div>
 
                 <nav style={{ flex: 1 }}>
@@ -118,12 +118,7 @@ export default function Layout({ children, activeTab, onTabChange }) {
                         active={activeTab === 'analytics'}
                         onClick={() => onTabChange('analytics')}
                     />
-                    <SidebarItem
-                        icon={Calendar}
-                        label="Suscripciones"
-                        active={activeTab === 'subscriptions'}
-                        onClick={() => onTabChange('subscriptions')}
-                    />
+
                     <SidebarItem
                         icon={UploadCloud}
                         label="Importar"
@@ -139,8 +134,8 @@ export default function Layout({ children, activeTab, onTabChange }) {
                 </nav>
 
                 <div style={{ marginTop: 'auto', fontSize: '0.875rem', color: 'var(--color-text-tertiary)' }}>
-                    <p>Procesamiento Local PDF</p>
-                    <p>v1.0.0</p>
+                    <p>FinPilot AI</p>
+                    <p>v2.0.0</p>
                 </div>
             </aside>
 
@@ -160,7 +155,7 @@ export default function Layout({ children, activeTab, onTabChange }) {
                         {activeTab === 'dashboard' && 'Panel Principal'}
                         {activeTab === 'records' && 'Registros'}
                         {activeTab === 'analytics' && 'Análisis'}
-                        {activeTab === 'subscriptions' && 'Suscripciones'}
+
                         {activeTab === 'imports' && 'Importar'}
                         {activeTab === 'settings' && 'Configuración'}
                     </h2>

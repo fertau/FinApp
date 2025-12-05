@@ -8,8 +8,8 @@ export default function CardMapping({ profileId }) {
         db.cardMappings.where('profileId').equals(profileId || 0).toArray()
         , [profileId]);
 
-    const owners = useLiveQuery(() =>
-        db.owners.where('profileId').equals(profileId || 0).toArray()
+    const members = useLiveQuery(() =>
+        db.members.where('profileId').equals(profileId || 0).toArray()
         , [profileId]);
 
     const [last4, setLast4] = useState('');
@@ -75,8 +75,8 @@ export default function CardMapping({ profileId }) {
                     }}
                 >
                     <option value="">Select Owner...</option>
-                    {owners?.map(o => (
-                        <option key={o.id} value={o.name}>{o.name}</option>
+                    {members?.map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
                     ))}
                 </select>
                 <button

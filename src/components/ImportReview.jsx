@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Save, X, Check, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, X, Check, AlertTriangle, Plus } from 'lucide-react';
 import CategorySelector from './CategorySelector';
 
-export default function ImportReview({ transactions, onSave, onCancel, owners, categories, subcategories, settings, onCreateCategory }) {
+export default function ImportReview({ transactions, onSave, onCancel, members, paymentMethods, categories, subcategories, settings, onCreateCategory, onCreatePaymentMethod }) {
     const [editedTransactions, setEditedTransactions] = useState(transactions);
 
     const handleChange = (index, field, value) => {
@@ -23,13 +23,20 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
 
     const totalAmount = editedTransactions.reduce((sum, t) => {
         if (t.type === 'EXCLUDED') return sum;
-        return sum + (t.type === 'income' ? Math.abs(t.amount) : -Math.abs(t.amount));
+        // Income and Payment are positive, Expenses are negative
+        const isPositive = t.type === 'income' || t.type === 'payment';
+        return sum + (isPositive ? Math.abs(t.amount) : -Math.abs(t.amount));
     }, 0);
 
     // Batch Owner Mapping Logic
     const [showOwnerMapping, setShowOwnerMapping] = useState(false);
     const [detectedOwners, setDetectedOwners] = useState([]);
     const [ownerMappings, setOwnerMappings] = useState({});
+
+    // Payment Method Mapping Logic
+    const [showPMMapping, setShowPMMapping] = useState(false);
+    const [detectedPMs, setDetectedPMs] = useState([]);
+    const [pmMappings, setPMMappings] = useState({});
 
     // Bulk Selection State
     const [selectedIndices, setSelectedIndices] = useState(new Set());
@@ -71,6 +78,15 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
         setEditedTransactions(newTrans);
     };
 
+    const handleBulkPaymentMethod = (pmName) => {
+        if (!pmName) return;
+        const newTrans = [...editedTransactions];
+        selectedIndices.forEach(index => {
+            newTrans[index] = { ...newTrans[index], paymentMethod: pmName };
+        });
+        setEditedTransactions(newTrans);
+    };
+
     const handleBulkDelete = () => {
         if (!window.confirm(`¿Eliminar ${selectedIndices.size} transacciones seleccionadas?`)) return;
         const newTrans = editedTransactions.filter((_, i) => !selectedIndices.has(i));
@@ -78,20 +94,37 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
         setSelectedIndices(new Set());
     };
 
-    // Identify unknown owners on load
-    React.useEffect(() => {
-        const uniqueDetected = [...new Set(transactions.map(t => t.owner).filter(o => o))];
-        const unknown = uniqueDetected.filter(d => !owners?.some(o => o.name === d));
+    // Identify unknown members and payment methods on load
+    useEffect(() => {
+        // Owners
+        const uniqueOwners = [...new Set(transactions.map(t => t.owner).filter(Boolean))];
+        const unknownOwners = uniqueOwners.filter(d => !members?.some(m => m.name === d));
 
-        if (unknown.length > 0) {
-            setDetectedOwners(unknown);
-            // Initialize mappings with empty or best guess
-            const initialMappings = {};
-            unknown.forEach(u => initialMappings[u] = '');
-            setOwnerMappings(initialMappings);
+        if (unknownOwners.length > 0) {
+            setDetectedOwners(unknownOwners);
+            const initialOwnerMappings = {};
+            unknownOwners.forEach(u => initialOwnerMappings[u] = '');
+            setOwnerMappings(initialOwnerMappings);
             setShowOwnerMapping(true);
         }
-    }, [transactions, owners]);
+
+        // Payment Methods
+        const uniquePMs = [...new Set(transactions.map(t => t.paymentMethod).filter(Boolean))];
+        const unknownPMs = uniquePMs.filter(pm => !paymentMethods?.some(p => p.name === pm));
+
+        if (unknownPMs.length > 0) {
+            setDetectedPMs(unknownPMs);
+            const initialPMMappings = {};
+            unknownPMs.forEach(pm => initialPMMappings[pm] = 'CREATE_NEW'); // Default to creating new
+            setPMMappings(initialPMMappings);
+            // Show PM mapping after Owner mapping (or simultaneously? Sequential is better to avoid overlapping modals)
+            // We'll rely on the fact that if showOwnerMapping is true, it covers this one. 
+            // But to be safe, let's show this one only if owner mapping is done? 
+            // Actually, let's just set it to true. If both are true, we render both? 
+            // We should render them conditionally.
+            setShowPMMapping(true);
+        }
+    }, [transactions, members, paymentMethods]);
 
     const handleApplyMappings = () => {
         const newTrans = editedTransactions.map(t => {
@@ -102,6 +135,28 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
         });
         setEditedTransactions(newTrans);
         setShowOwnerMapping(false);
+    };
+
+    const handleApplyPMMappings = () => {
+        const newTrans = [...editedTransactions];
+
+        // Process mappings
+        Object.entries(pmMappings).forEach(([detected, action]) => {
+            if (action === 'CREATE_NEW') {
+                // Create the new payment method
+                if (onCreatePaymentMethod) onCreatePaymentMethod(detected);
+            } else if (action) {
+                // Map to existing
+                newTrans.forEach((t, i) => {
+                    if (t.paymentMethod === detected) {
+                        newTrans[i] = { ...t, paymentMethod: action };
+                    }
+                });
+            }
+        });
+
+        setEditedTransactions(newTrans);
+        setShowPMMapping(false);
     };
 
     return (
@@ -153,7 +208,7 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
                                         }}
                                     >
                                         <option value="">(Mantener original)</option>
-                                        {owners?.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                                        {members?.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                     </select>
                                 </div>
                             ))}
@@ -185,6 +240,86 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
                                 }}
                             >
                                 Aplicar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Method Mapping Modal - Show only if Owner Mapping is closed */}
+            {!showOwnerMapping && showPMMapping && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 200
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        padding: '2rem',
+                        borderRadius: 'var(--radius-lg)',
+                        maxWidth: '500px',
+                        width: '100%',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                    }}>
+                        <h3 style={{ marginBottom: '1rem' }}>Medios de Pago Nuevos</h3>
+                        <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                            Hemos detectado medios de pago que no tienes registrados.
+                            ¿Deseas crearlos o asignarlos a uno existente?
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                            {detectedPMs.map(detected => (
+                                <div key={detected} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontWeight: 500 }}>{detected}</span>
+                                    <span style={{ color: 'var(--color-text-tertiary)' }}>→</span>
+                                    <select
+                                        value={pmMappings[detected] || 'CREATE_NEW'}
+                                        onChange={(e) => setPMMappings(prev => ({ ...prev, [detected]: e.target.value }))}
+                                        style={{
+                                            padding: '0.5rem',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--color-bg-tertiary)',
+                                            backgroundColor: 'var(--color-bg-secondary)',
+                                            color: 'inherit',
+                                            width: '200px'
+                                        }}
+                                    >
+                                        <option value="CREATE_NEW">✨ Crear "{detected}"</option>
+                                        <optgroup label="Asignar a existente:">
+                                            {paymentMethods?.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button
+                                onClick={() => setShowPMMapping(false)}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    border: '1px solid var(--color-bg-tertiary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    background: 'transparent',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Omitir
+                            </button>
+                            <button
+                                onClick={handleApplyPMMappings}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: 'var(--color-accent-primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-md)',
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                }}
+                            >
+                                Confirmar
                             </button>
                         </div>
                     </div>
@@ -227,7 +362,16 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
                             style={{ padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--color-accent-primary)', fontSize: '0.8rem' }}
                         >
                             <option value="">Asignar Dueño...</option>
-                            {owners?.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                            {members?.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        </select>
+
+                        <select
+                            onChange={(e) => handleBulkPaymentMethod(e.target.value)}
+                            value=""
+                            style={{ padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--color-accent-primary)', fontSize: '0.8rem' }}
+                        >
+                            <option value="">Asignar Medio Pago...</option>
+                            {paymentMethods?.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
                         </select>
 
                         <CategorySelector
@@ -422,8 +566,39 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
                                                 </span>
                                             ) : '-'}
                                         </td>
-                                        <td style={{ padding: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                                            {t.paymentMethod || '-'}
+                                        <td style={{ padding: '0.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <select
+                                                    value={t.paymentMethod || ''}
+                                                    onChange={(e) => handleChange(i, 'paymentMethod', e.target.value)}
+                                                    disabled={isExcluded}
+                                                    style={{ background: 'transparent', border: '1px solid var(--color-bg-tertiary)', borderRadius: '4px', padding: '2px', color: 'inherit', maxWidth: '150px', fontSize: '0.875rem' }}
+                                                >
+                                                    <option value="">-</option>
+                                                    {/* If detected PM is not in list, show it */}
+                                                    {t.paymentMethod && !paymentMethods?.some(pm => pm.name === t.paymentMethod) && (
+                                                        <option value={t.paymentMethod}>Detected: {t.paymentMethod}</option>
+                                                    )}
+                                                    {paymentMethods?.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                                                </select>
+                                                {t.paymentMethod && !paymentMethods?.some(pm => pm.name === t.paymentMethod) && (
+                                                    <button
+                                                        onClick={() => onCreatePaymentMethod(t.paymentMethod)}
+                                                        title="Crear este medio de pago"
+                                                        style={{
+                                                            padding: '2px',
+                                                            backgroundColor: 'var(--color-accent-subtle)',
+                                                            color: 'var(--color-accent-primary)',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        }}
+                                                    >
+                                                        <Plus size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                         <td style={{ padding: '0.5rem' }}>
                                             <select
@@ -434,10 +609,10 @@ export default function ImportReview({ transactions, onSave, onCancel, owners, c
                                             >
                                                 <option value="">Select...</option>
                                                 {/* If the current owner is not in the list, show it as an option */}
-                                                {t.owner && !owners?.some(o => o.name === t.owner) && (
+                                                {t.owner && !members?.some(m => m.name === t.owner) && (
                                                     <option value={t.owner}>Detected: {t.owner}</option>
                                                 )}
-                                                {owners?.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                                                {members?.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                             </select>
                                         </td>
                                         <td style={{ padding: '0.5rem' }}>

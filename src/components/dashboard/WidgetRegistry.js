@@ -1,10 +1,18 @@
+import FinPilotWidget from './FinPilotWidget';
 import CategoryChart from './CategoryChart';
-import OwnerChart from './OwnerChart';
+import MemberChart from './MemberChart';
 import PaymentMethodChart from './PaymentMethodChart';
 import TopExpensesChart from './TopExpensesChart';
 import MonthlyFlowChart from './MonthlyFlowChart';
 
 export const AVAILABLE_WIDGETS = [
+    {
+        id: 'finpilot_suggestions',
+        title: 'Sugerencias FinPilot',
+        component: FinPilotWidget,
+        defaultSize: { w: 1, h: 1 },
+        description: 'Insights inteligentes sobre tus gastos y suscripciones.'
+    },
     {
         id: 'category_chart',
         title: 'Gastos por Categoría',
@@ -13,11 +21,11 @@ export const AVAILABLE_WIDGETS = [
         description: 'Gráfico de torta con apertura por categorías y subcategorías.'
     },
     {
-        id: 'owner_chart',
-        title: 'Gastos por Dueño',
-        component: OwnerChart,
+        id: 'owner_chart', // Keep ID for backward compatibility
+        title: 'Gastos por Usuario',
+        component: MemberChart,
         defaultSize: { w: 1, h: 1 },
-        description: 'Comparativa de gastos entre los dueños registrados.'
+        description: 'Comparativa de gastos entre los usuarios registrados.'
     },
     {
         id: 'payment_method_chart',
