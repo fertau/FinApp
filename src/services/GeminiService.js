@@ -5,7 +5,7 @@ export const GeminiService = {
         if (!apiKey) throw new Error("API Key is required");
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
         // Prepare context
         // Summarize transactions to avoid token limits if necessary, but for now send recent ones
@@ -39,7 +39,7 @@ export const GeminiService = {
         if (!apiKey) throw new Error("API Key is required");
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
         // Prepare anomalies context
         const anomaliesText = anomalies.map(a =>

@@ -49,7 +49,7 @@ export default function FinPilotWidget({ transactions, settings }) {
                     <Sparkles size={18} style={{ color: 'var(--color-accent-primary)' }} />
                     <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Sugerencias FinPilot</h4>
                 </div>
-                <button onClick={fetchInsights} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}>
+                <button onClick={generateInsights} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}>
                     <RefreshCw size={14} className={loading ? 'spin' : ''} />
                 </button>
             </div>
@@ -58,10 +58,6 @@ export default function FinPilotWidget({ transactions, settings }) {
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)' }}>
                         Analizando gastos...
-                    </div>
-                ) : error ? (
-                    <div style={{ padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
-                        {error}
                     </div>
                 ) : insights.length > 0 ? (
                     insights.map((insight, i) => (

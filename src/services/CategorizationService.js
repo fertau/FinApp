@@ -34,7 +34,7 @@ export const CategorizationService = {
         const subcategories = await db.subcategories.toArray();
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
         // Prepare context with existing categories
         const categoryContext = categories.map(c => {
@@ -123,7 +123,7 @@ Responde SOLO con el JSON array, sin explicaciones adicionales.
         if (!description) return null;
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
         const categoryList = existingCategories.map(c => {
             const subs = c.subcategories || [];
