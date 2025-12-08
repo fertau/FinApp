@@ -76,13 +76,13 @@ export class AIParser {
             "gemini-2.5-pro",
             "gemini-2.0-flash",
             "gemini-2.0-flash-exp",
-            "gemini-pro",
-            "gemini-pro-latest",
-            "gemini-pro-001",
-            "gemini-pro-8b",
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro-001",
+            "gemini-1.5-pro-8b",
             "gemini-1.5-pro",
             "gemini-1.0-pro",
-            "gemini-pro"
+            "gemini-1.5-pro"
         ];
         let lastError = null;
 
