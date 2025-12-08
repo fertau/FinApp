@@ -1,11 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Coffee, ShoppingCart, Home, Car, Zap, DollarSign, ArrowRightLeft, AlertCircle, Edit2, Check, X, Trash2, Calendar, CreditCard, AlertTriangle } from 'lucide-react';
+import { Coffee, ShoppingCart, Home, Car, Zap, DollarSign, ArrowRightLeft, AlertCircle, Edit2, Check, X, Trash2, Calendar, CreditCard, AlertTriangle, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { formatCurrency } from '../utils/currencyUtils';
 import CategorySelector from './CategorySelector';
+import CategorySuggestionModal from './CategorySuggestionModal';
 
 export default function TransactionList({ transactions, onUpdateTransaction, onDeleteTransaction, categories, subcategories, members, paymentMethods }) {
     const [viewMode, setViewMode] = useState('date'); // 'date' | 'paymentMethod'
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
+    const [showFullDescription, setShowFullDescription] = useState(false);
+    const [suggestingTransaction, setSuggestingTransaction] = useState(null);
 
     // Grouping Logic
     const groupedTransactions = useMemo(() => {
@@ -76,6 +80,21 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
         }
     };
 
+    const handleSuggestCategory = (transaction) => {
+        setSuggestingTransaction(transaction);
+    };
+
+    const handleApplySuggestion = async (categoryData) => {
+        if (onUpdateTransaction && suggestingTransaction) {
+            await onUpdateTransaction(suggestingTransaction.id, {
+                ...suggestingTransaction,
+                category: categoryData.category,
+                subcategory: categoryData.subcategory
+            });
+        }
+        setSuggestingTransaction(null);
+    };
+
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
             {/* Header & Controls */}
@@ -132,7 +151,11 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                         {viewMode === 'date' ? <Calendar size={18} /> : <CreditCard size={18} />}
                         {groupKey}
                         <span style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontWeight: 400, marginLeft: 'auto' }}>
-                            {trans.length} registros • Total: ${trans.reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -Math.abs(t.amount)), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            {trans.length} registros • Total: {(() => {
+                                const sum = trans.reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -Math.abs(t.amount)), 0);
+                                const allUSD = trans.every(t => t.currency === 'USD');
+                                return formatCurrency(sum, allUSD ? 'USD' : 'ARS');
+                            })()}
                         </span>
                     </h3>
 
@@ -142,7 +165,18 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                             <thead>
                                 <tr style={{ textAlign: 'left', color: 'var(--color-text-secondary)' }}>
                                     <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>Fecha</th>
-                                    <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>Descripción</th>
+                                    <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            Descripción
+                                            <button
+                                                onClick={() => setShowFullDescription(!showFullDescription)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: 0, display: 'flex' }}
+                                                title={showFullDescription ? "Contraer texto" : "Ver todo el texto"}
+                                            >
+                                                {showFullDescription ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </button>
+                                        </div>
+                                    </th>
                                     <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>Monto</th>
                                     <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>Cuota</th>
                                     <th style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>Medio Pago</th>
@@ -177,16 +211,29 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                                             </td>
 
                                             {/* Description */}
-                                            <td style={{ padding: '0.5rem', maxWidth: '300px' }}>
+                                            <td style={{
+                                                padding: '0.5rem',
+                                                maxWidth: showFullDescription ? 'none' : '400px',
+                                                minWidth: '250px',
+                                                verticalAlign: 'top'
+                                            }}>
                                                 {isEditing ? (
-                                                    <input
-                                                        type="text"
+                                                    <textarea
                                                         value={editForm.description}
                                                         onChange={e => handleChange('description', e.target.value)}
-                                                        style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--color-bg-tertiary)' }}
+                                                        style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--color-bg-tertiary)', minHeight: '60px' }}
                                                     />
                                                 ) : (
-                                                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.description}>
+                                                    <div
+                                                        style={{
+                                                            whiteSpace: showFullDescription ? 'normal' : 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            cursor: 'help',
+                                                            wordBreak: 'break-word'
+                                                        }}
+                                                        title={t.description}
+                                                    >
                                                         {t.description}
                                                     </div>
                                                 )}
@@ -216,8 +263,7 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                                                         fontWeight: 500,
                                                         color: t.amount > 0 ? 'var(--color-success)' : 'var(--color-text-primary)'
                                                     }}>
-                                                        {t.currency === 'USD' ? 'USD ' : '$'}
-                                                        {Math.abs(t.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                        {formatCurrency(t.amount, t.currency)}
                                                     </span>
                                                 )}
                                             </td>
@@ -347,6 +393,13 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                                                         >
                                                             {isExcluded ? <Check size={16} /> : <AlertTriangle size={16} />}
                                                         </button>
+                                                        <button
+                                                            onClick={() => handleSuggestCategory(t)}
+                                                            title="Sugerir Categoría con IA"
+                                                            style={{ color: 'var(--color-accent-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                        >
+                                                            <Sparkles size={16} />
+                                                        </button>
                                                         <button onClick={() => handleEditClick(t)} style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={16} /></button>
                                                         <button onClick={() => handleDeleteClick(t.id)} style={{ color: 'var(--color-error)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                     </div>
@@ -365,6 +418,17 @@ export default function TransactionList({ transactions, onUpdateTransaction, onD
                 <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--color-text-secondary)' }}>
                     No se encontraron registros.
                 </div>
+            )}
+
+            {/* Category Suggestion Modal */}
+            {suggestingTransaction && (
+                <CategorySuggestionModal
+                    transaction={suggestingTransaction}
+                    suggestion={null}
+                    onApply={handleApplySuggestion}
+                    onSkip={() => setSuggestingTransaction(null)}
+                    onClose={() => setSuggestingTransaction(null)}
+                />
             )}
         </div>
     );

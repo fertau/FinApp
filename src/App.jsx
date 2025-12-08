@@ -5,12 +5,12 @@ import Layout from './components/Layout'
 import FileUpload from './components/FileUpload'
 import Dashboard from './components/Dashboard'
 import TransactionList from './components/TransactionList'
-import Analytics from './components/Analytics'
-import AccountsWidget from './components/AccountsWidget'
+import FinPilotChat from './components/FinPilotChat'
 import Settings from './components/Settings'
 import ProfileSwitcher from './components/ProfileSwitcher'
 import ImportReview from './components/ImportReview'
 import ImportManager from './components/ImportManager'
+import RecurringExpensesView from './components/RecurringExpensesView'
 
 import { extractTextFromPdf } from './utils/pdfParser'
 import { getParserForFile } from './utils/parsers/parserFactory'
@@ -18,6 +18,10 @@ import { categorizeTransaction } from './utils/categorizer'
 import { detectAccountAndOwner } from './utils/accountDetector'
 import { SyncProvider } from './context/SyncContext'
 import OnboardingTutorial from './components/OnboardingTutorial'
+
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from './firebase'
+import Login from './components/Login'
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -41,10 +45,23 @@ function AppContent() {
 
     // Auto-fetch exchange rate if not set or old?
     // For now just try to fetch on load to keep it fresh
-    import('./utils/currencyUtils').then(({ fetchExchangeRates }) => {
-      fetchExchangeRates().then(rates => {
-        if (rates && rates.blue) {
-          setSettings(prev => ({ ...prev, exchangeRate: rates.blue }));
+    // Auto-fetch exchange rate from DolarAPI
+    import('./services/CurrencyService').then(({ CurrencyService }) => {
+      CurrencyService.fetchCurrentRates().then(async rates => {
+        if (rates && rates.oficial) {
+          // Update Settings state (for UI display)
+          setSettings(prev => ({ ...prev, exchangeRate: rates.oficial.sell }));
+
+          // Update DB with today's rate
+          // We use the update date from API or today's date?
+          // API returns ISO string. Let's use that date.
+          const apiDate = new Date(rates.oficial.date);
+          const dateStr = apiDate.toISOString().split('T')[0];
+
+          // Use ExchangeRateService to save it
+          const { ExchangeRateService } = await import('./services/ExchangeRateService');
+          await ExchangeRateService.setRate(dateStr, rates.oficial.sell, 'USD');
+          console.log(`Updated Official Rate for ${dateStr}: ${rates.oficial.sell}`);
         }
       });
     });
@@ -332,13 +349,13 @@ function AppContent() {
       case 'dashboard':
         return (
           <div>
-            <AccountsWidget transactions={transactions} exchangeRate={settings.exchangeRate} />
             <Dashboard
               transactions={transactions}
               exchangeRate={settings.exchangeRate}
               categories={categories}
               subcategories={subcategories}
               paymentMethods={paymentMethods}
+              apiKey={settings.geminiApiKey}
             />
           </div>
         );
@@ -353,7 +370,7 @@ function AppContent() {
           paymentMethods={paymentMethods}
         />;
       case 'analytics':
-        return <Analytics transactions={transactions} exchangeRate={settings.exchangeRate} />;
+        return <FinPilotChat transactions={transactions} />;
 
       case 'imports':
         return (
@@ -466,6 +483,29 @@ function AppContent() {
 }
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
+        Cargando...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <SyncProvider>
       <AppContent />

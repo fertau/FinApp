@@ -9,6 +9,54 @@ export default function MemberManager({ profileId }) {
         [profileId]
     );
 
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+
+    const startEditing = (member) => {
+        setEditingId(member.id);
+        setEditName(member.name);
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditName('');
+    };
+
+    const handleUpdateMember = async (id) => {
+        if (!editName.trim()) return;
+
+        const member = members.find(m => m.id === id);
+        if (!member) return;
+
+        const oldName = member.name;
+        const newName = editName.trim();
+
+        if (oldName === newName) {
+            cancelEditing();
+            return;
+        }
+
+        // 1. Update Member
+        await db.members.update(id, { name: newName });
+
+        // 2. Batch Update Transactions
+        const affectedTransactions = await db.transactions
+            .where('profileId').equals(profileId)
+            .filter(t => t.owner === oldName)
+            .toArray();
+
+        if (affectedTransactions.length > 0) {
+            await db.transactions
+                .where('profileId').equals(profileId)
+                .filter(t => t.owner === oldName)
+                .modify({ owner: newName });
+
+            console.log(`Updated ${affectedTransactions.length} transactions from owner "${oldName}" to "${newName}"`);
+        }
+
+        cancelEditing();
+    };
+
     const handleAddMember = async (e) => {
         e.preventDefault();
         const name = e.target.elements.name.value.trim();
@@ -51,13 +99,38 @@ export default function MemberManager({ profileId }) {
                         borderRadius: 'var(--radius-full)',
                         border: '1px solid var(--color-bg-tertiary)'
                     }}>
-                        <span style={{ fontWeight: 500 }}>{member.name}</span>
-                        <button
-                            onClick={() => handleDeleteMember(member.id)}
-                            style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
-                        >
-                            <Trash2 size={14} />
-                        </button>
+                        {editingId === member.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    style={{ padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--color-accent-primary)', width: '100px' }}
+                                    autoFocus
+                                />
+                                <button onClick={() => handleUpdateMember(member.id)} style={{ color: 'var(--color-success)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><Check size={14} /></button>
+                                <button onClick={cancelEditing} style={{ color: 'var(--color-error)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={14} /></button>
+                            </div>
+                        ) : (
+                            <>
+                                <span style={{ fontWeight: 500 }}>{member.name}</span>
+                                <div style={{ display: 'flex', gap: '4px', marginLeft: '0.5rem' }}>
+                                    <button
+                                        onClick={() => startEditing(member)}
+                                        style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                        title="Renombrar"
+                                    >
+                                        <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteMember(member.id)}
+                                        style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                        title="Eliminar"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>

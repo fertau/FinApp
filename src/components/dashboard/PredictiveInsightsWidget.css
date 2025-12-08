@@ -1,0 +1,322 @@
+.predictive-insights-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--color-bg-secondary, #1e293b);
+    border-radius: 12px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.predictive-insights-widget.loading,
+.predictive-insights-widget.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--color-bg-tertiary, #334155);
+    border-top-color: var(--color-accent-primary, #3b82f6);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.widget-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--color-text-primary, #f1f5f9);
+}
+
+.ai-tips-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ai-tips-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.ai-tips-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Insight Cards */
+.insight-card {
+    background: var(--color-bg-primary, #0f172a);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid var(--color-bg-tertiary, #334155);
+    transition: all 0.2s;
+}
+
+.insight-card:hover {
+    border-color: var(--color-accent-primary, #3b82f6);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-accent-primary, #3b82f6);
+}
+
+.card-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Projection Card */
+.projection-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat .label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat .value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #f1f5f9);
+}
+
+.stat .value.projected {
+    color: var(--color-accent-primary, #3b82f6);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--color-bg-tertiary, #334155);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transition: width 0.3s ease;
+}
+
+.progress-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary, #94a3b8);
+    margin-top: 0.5rem;
+}
+
+.progress-label .confidence {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--color-success, #10b981);
+}
+
+/* Anomalies Card */
+.anomaly-item {
+    padding: 0.75rem;
+    background: var(--color-bg-secondary, #1e293b);
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.anomaly-item.increase {
+    border-left-color: var(--color-error, #ef4444);
+}
+
+.anomaly-item.decrease {
+    border-left-color: var(--color-success, #10b981);
+}
+
+.anomaly-item.new {
+    border-left-color: var(--color-warning, #f59e0b);
+}
+
+.anomaly-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.anomaly-header .category {
+    font-weight: 600;
+    color: var(--color-text-primary, #f1f5f9);
+}
+
+.anomaly-header .change {
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.anomaly-header .change.increase {
+    color: var(--color-error, #ef4444);
+}
+
+.anomaly-header .change.decrease {
+    color: var(--color-success, #10b981);
+}
+
+.anomaly-details {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.anomaly-details .vs {
+    opacity: 0.5;
+}
+
+/* Savings Card */
+.savings-item {
+    padding: 0.75rem;
+    background: var(--color-bg-secondary, #1e293b);
+    border-radius: 8px;
+    border-left: 4px solid var(--color-success, #10b981);
+}
+
+.savings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.savings-header .category {
+    font-weight: 600;
+    color: var(--color-text-primary, #f1f5f9);
+}
+
+.savings-amount {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--color-success, #10b981);
+}
+
+.savings-details {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.savings-details p {
+    margin: 0;
+}
+
+/* AI Tips Card */
+.ai-tips-card .card-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin: -1rem -1rem 1rem -1rem;
+}
+
+.ai-badge {
+    font-size: 1.5rem;
+}
+
+.ai-tip {
+    padding: 0.75rem;
+    background: var(--color-bg-secondary, #1e293b);
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.ai-tip.priority-high {
+    border-left-color: #ef4444;
+}
+
+.ai-tip.priority-medium {
+    border-left-color: #f59e0b;
+}
+
+.ai-tip.priority-low {
+    border-left-color: #3b82f6;
+}
+
+.tip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.tip-category {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-accent-primary, #3b82f6);
+}
+
+.tip-savings {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--color-success, #10b981);
+}
+
+.tip-text {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-primary, #f1f5f9);
+    line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .projection-stats {
+        grid-template-columns: 1fr;
+    }
+}

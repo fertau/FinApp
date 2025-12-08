@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ArrowLeft, ZoomIn } from 'lucide-react';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#a4de6c', '#EF4444', '#6366F1'];
 
-const CustomTooltip = ({ active, payload, total }) => {
+const CustomTooltip = ({ active, payload, total, currency }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         const percent = total > 0 ? ((data.value / total) * 100).toFixed(1) : '0.0';
@@ -12,7 +13,7 @@ const CustomTooltip = ({ active, payload, total }) => {
             <div style={{ backgroundColor: 'var(--color-bg-primary)', padding: '10px', border: '1px solid var(--color-bg-tertiary)', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }}>
                 <p style={{ fontWeight: 600, marginBottom: '4px' }}>{data.name}</p>
                 <p style={{ color: 'var(--color-text-secondary)' }}>
-                    ${data.value.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    {formatCurrency(data.value, currency)}
                 </p>
                 <p style={{ color: 'var(--color-accent-primary)', fontWeight: 600 }}>
                     {percent}%
@@ -51,9 +52,7 @@ export default function CategoryChart({ transactions, exchangeRate, categories, 
             if (t.type !== 'expense' && t.type !== 'REAL_EXPENSE') return;
             if (t.isExtraordinary) return;
 
-            let amount = t.amount;
-            if (t.currency === 'USD') amount *= exchangeRate;
-            amount = Math.abs(amount);
+            const amount = Math.abs(t.amount);
 
             if (selectedCategory) {
                 // Drill down
@@ -61,7 +60,6 @@ export default function CategoryChart({ transactions, exchangeRate, categories, 
                 if (parentName === selectedCategory) {
                     const subName = t.category;
                     if (!totals[subName]) totals[subName] = 0;
-                    totals[subName] += amount;
                     totalAmount += amount;
                 }
             } else {
@@ -120,11 +118,11 @@ export default function CategoryChart({ transactions, exchangeRate, categories, 
                 <PieChart>
                     <Pie
                         data={data}
-                        cx="50%"
+                        cx="40%" // Shift left to make room for legend
                         cy="50%"
                         labelLine={false}
-                        outerRadius={selectedCategory ? 110 : 100} // Slightly larger when zoomed
-                        innerRadius={selectedCategory ? 60 : 0} // Donut chart when zoomed for variety? Or keep pie. Let's keep pie but maybe inner radius 0.
+                        outerRadius={selectedCategory ? "85%" : "80%"} // Percentage based
+                        innerRadius={selectedCategory ? "40%" : 0}
                         fill="#8884d8"
                         dataKey="value"
                         onClick={(entry) => {
@@ -142,12 +140,12 @@ export default function CategoryChart({ transactions, exchangeRate, categories, 
                             />
                         ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip total={total} />} />
+                    <Tooltip content={<CustomTooltip total={total} currency={transactions[0]?.currency || 'ARS'} />} />
                     <Legend
                         layout="vertical"
                         align="right"
                         verticalAlign="middle"
-                        wrapperStyle={{ fontSize: '12px', maxWidth: '120px' }}
+                        wrapperStyle={{ fontSize: '12px', maxWidth: '150px', right: 0 }}
                         formatter={(value, entry) => {
                             const item = data.find(d => d.name === value);
                             const percent = item ? ((item.value / total) * 100).toFixed(0) : 0;

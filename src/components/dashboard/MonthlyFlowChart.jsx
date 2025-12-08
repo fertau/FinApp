@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { formatCurrency } from '../../utils/currencyUtils';
 
-export default function MonthlyFlowChart({ transactions, exchangeRate }) {
+export default function MonthlyFlowChart({ transactions, exchangeRate, currency }) {
     const data = useMemo(() => {
         const monthlyFlow = {};
         transactions.forEach(t => {
-            let amountInArs = t.amount;
-            if (t.currency === 'USD') amountInArs = t.amount * exchangeRate;
+            // Transactions are already converted in Dashboard.jsx
+            let amount = t.amount;
 
             const parts = t.date.split(/[-/]/);
             let month = parts[1];
@@ -18,9 +19,9 @@ export default function MonthlyFlowChart({ transactions, exchangeRate }) {
                 if (!monthlyFlow[key]) monthlyFlow[key] = { name: key, income: 0, expense: 0 };
 
                 if (t.type === 'income' || t.type === 'REAL_INCOME') {
-                    monthlyFlow[key].income += amountInArs;
+                    monthlyFlow[key].income += amount;
                 } else if (t.type === 'expense' || t.type === 'REAL_EXPENSE') {
-                    monthlyFlow[key].expense += Math.abs(amountInArs);
+                    monthlyFlow[key].expense += Math.abs(amount);
                 }
             }
         });
@@ -35,7 +36,7 @@ export default function MonthlyFlowChart({ transactions, exchangeRate }) {
                 <XAxis dataKey="name" stroke="var(--color-text-secondary)" fontSize={12} />
                 <YAxis stroke="var(--color-text-secondary)" fontSize={12} />
                 <Tooltip
-                    formatter={(value) => `$${value.toLocaleString('es-AR')}`}
+                    formatter={(value) => formatCurrency(value, currency || 'ARS')}
                     contentStyle={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-bg-tertiary)' }}
                 />
                 <Legend />

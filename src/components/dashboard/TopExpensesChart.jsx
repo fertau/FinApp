@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
+import { formatCurrency } from '../../utils/currencyUtils';
 
-export default function TopExpensesChart({ transactions, exchangeRate }) {
+export default function TopExpensesChart({ transactions, exchangeRate, currency }) {
     const data = useMemo(() => {
         const totals = {};
         transactions.forEach(t => {
             if (t.type !== 'expense' && t.type !== 'REAL_EXPENSE') return;
 
             let amount = Math.abs(t.amount);
-            if (t.currency === 'USD') amount *= exchangeRate;
 
             const cat = t.category || 'Otros';
             if (!totals[cat]) totals[cat] = 0;
@@ -30,7 +30,7 @@ export default function TopExpensesChart({ transactions, exchangeRate }) {
                     <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span>{item.name}</span>
-                            <span style={{ fontWeight: 600 }}>${item.value.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                            <span style={{ fontWeight: 600 }}>{formatCurrency(item.value, currency || 'ARS', 0)}</span>
                         </div>
                         <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--color-bg-tertiary)', borderRadius: '2px' }}>
                             <div style={{

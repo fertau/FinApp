@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
-import { Wallet, CreditCard, Landmark } from 'lucide-react';
+import { Wallet, CreditCard } from 'lucide-react';
+import { formatCurrency } from '../utils/currencyUtils';
 
-export default function AccountsWidget({ transactions, exchangeRate = 1000 }) {
+export default function AccountsWidget({ transactions, currency = 'ARS' }) {
+    // Calculate Totals (transactions are already filtered and converted)
     const ownerExpenses = useMemo(() => {
         const expenses = {};
         let total = 0;
@@ -13,11 +15,8 @@ export default function AccountsWidget({ transactions, exchangeRate = 1000 }) {
             const owner = t.owner || 'Desconocido';
             if (!expenses[owner]) expenses[owner] = 0;
 
-            // Convert to ARS for total
-            let amount = Math.abs(t.amount);
-            if (t.currency === 'USD') {
-                amount *= exchangeRate;
-            }
+            // Amount is already converted and negative for expenses
+            const amount = Math.abs(t.amount);
 
             expenses[owner] += amount;
             total += amount;
@@ -27,16 +26,16 @@ export default function AccountsWidget({ transactions, exchangeRate = 1000 }) {
             byOwner: Object.entries(expenses).sort((a, b) => b[1] - a[1]),
             total
         };
-    }, [transactions, exchangeRate]);
+    }, [transactions]);
 
     return (
-        <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem', fontWeight: 600 }}>Resumen de Gastos</h3>
-
+        <div style={{ marginBottom: '2rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: '1.5rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1.5rem',
+                flex: 1,
+                alignContent: 'center'
             }}>
                 {/* Total Card */}
                 <div style={{
@@ -61,7 +60,7 @@ export default function AccountsWidget({ transactions, exchangeRate = 1000 }) {
                         <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', fontWeight: 500 }}>Total Gastos</span>
                     </div>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                        ${ownerExpenses.total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        {formatCurrency(ownerExpenses.total, currency, 0)}
                     </div>
                 </div>
 
@@ -89,10 +88,10 @@ export default function AccountsWidget({ transactions, exchangeRate = 1000 }) {
                             <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', fontWeight: 500 }}>{owner}</span>
                         </div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                            ${amount.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {formatCurrency(amount, currency, 0)}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>
-                            {((amount / ownerExpenses.total) * 100).toFixed(1)}% del total
+                            {ownerExpenses.total > 0 ? ((amount / ownerExpenses.total) * 100).toFixed(1) : 0}% del total
                         </div>
                     </div>
                 ))}

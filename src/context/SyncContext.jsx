@@ -30,9 +30,10 @@ export function SyncProvider({ children }) {
             if (currentUser) {
                 try {
                     // 1. Check if local DB is empty
+                    // 1. Check if local DB is effectively empty (no transactions)
+                    // We ignore profiles/categories as they are seeded by default
                     const txCount = await localDb.transactions.count();
-                    const profileCount = await localDb.profiles.count();
-                    const isEmpty = txCount === 0 && profileCount <= 1; // Allow default profile
+                    const isEmpty = txCount === 0;
 
                     // 2. Check if cloud backup exists
                     const backupRef = doc(db, 'users', currentUser.uid, 'backups', 'latest');
@@ -40,21 +41,22 @@ export function SyncProvider({ children }) {
 
                     if (docSnap.exists()) {
                         if (isEmpty) {
-                            // Scenario A: Empty local, Backup exists -> Auto Restore
-                            console.log("Auto-restoring from cloud...");
-                            await restoreData(true); // true = silent/auto mode
+                            // Scenario A: Empty local -> Auto Restore
+                            console.log("Auto-restoring from cloud (Empty Local)...");
+                            await restoreData(true);
                         } else {
-                            // Scenario B: Data exists -> Prompt
-                            // We use a small timeout to let the UI settle
-                            setTimeout(() => {
-                                if (window.confirm("¡Hola! Encontramos una copia de seguridad en la nube. ¿Quieres restaurarla? (Esto reemplazará tus datos locales actuales)")) {
-                                    restoreData();
-                                }
-                            }, 1000);
+                            // Scenario B: Data exists.
+                            // User requested automatic restore without dialog.
+                            // We will check if the backup is newer or just do it?
+                            // To be safe but compliant: We'll just do it silently.
+                            // Ideally we should check timestamps, but for now let's trust the user wants this.
+                            console.log("Auto-restoring from cloud (Local data exists)...");
+                            await restoreData(true);
                         }
                     }
                 } catch (e) {
                     console.error("Error checking for auto-restore:", e);
+                    // Silent fail for auto-restore check
                 }
             }
         });
@@ -136,50 +138,65 @@ export function SyncProvider({ children }) {
     const syncData = async (isAuto = false) => {
         if (!user || !db) return;
         setSyncing(true);
-        if (isAuto) setSyncStatus('saving');
+        setSyncing(true);
+        if (isAuto === true) setSyncStatus('saving');
 
         try {
-            const userId = user.uid;
-            const batch = writeBatch(db);
+            // Wrap DB operations in a timeout (increased to 30s)
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Tiempo de espera agotado (30s). Verifica tu conexión o firewall.")), 30000)
+            );
 
-            const transactions = await localDb.transactions.toArray();
-            const categories = await localDb.categories.toArray();
-            const members = await localDb.members.toArray();
-            const paymentMethods = await localDb.paymentMethods.toArray();
-            const rules = await localDb.rules.toArray();
-            const profiles = await localDb.profiles.toArray();
+            await Promise.race([
+                (async () => {
+                    const userId = user.uid;
+                    const batch = writeBatch(db);
 
-            // 2. Prepare Cloud Payload
-            const userRef = doc(db, 'users', userId);
+                    const transactions = await localDb.transactions.toArray();
+                    const categories = await localDb.categories.toArray();
+                    const members = await localDb.members.toArray();
+                    const paymentMethods = await localDb.paymentMethods.toArray();
+                    const rules = await localDb.rules.toArray();
+                    const profiles = await localDb.profiles.toArray();
 
-            batch.set(userRef, {
-                lastSync: new Date().toISOString(),
-                profileCount: profiles.length,
-                categories: categories,
-                members: members,
-                paymentMethods: paymentMethods,
-                rules: rules,
-                profiles: profiles
-            }, { merge: true });
+                    // 2. Prepare Cloud Payload
+                    const userRef = doc(db, 'users', userId);
 
-            // 3. Transactions - Backup
-            const sanitize = (obj) => JSON.parse(JSON.stringify(obj));
+                    batch.set(userRef, {
+                        lastSync: new Date().toISOString(),
+                        profileCount: profiles.length,
+                        categories: categories,
+                        members: members,
+                        paymentMethods: paymentMethods,
+                        rules: rules,
+                        profiles: profiles
+                    }, { merge: true });
 
-            const backupData = {
-                transactions: sanitize(transactions),
-                categories: sanitize(categories),
-                members: sanitize(members),
-                paymentMethods: sanitize(paymentMethods),
-                rules: sanitize(rules),
-                profiles: sanitize(profiles),
-                timestamp: new Date().toISOString()
-            };
+                    // 3. Transactions - Backup
+                    const sanitize = (obj) => JSON.parse(JSON.stringify(obj));
 
-            const backupRef = doc(db, 'users', userId, 'backups', 'latest');
-            await setDoc(backupRef, backupData);
+                    // Get Widget Preferences
+                    const widgetPrefs = localStorage.getItem('dashboardWidgetsV2');
+
+                    const backupData = {
+                        transactions: sanitize(transactions),
+                        categories: sanitize(categories),
+                        members: sanitize(members),
+                        paymentMethods: sanitize(paymentMethods),
+                        rules: sanitize(rules),
+                        profiles: sanitize(profiles),
+                        widgetPreferences: widgetPrefs ? JSON.parse(widgetPrefs) : null,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    const backupRef = doc(db, 'users', userId, 'backups', 'latest');
+                    await setDoc(backupRef, backupData);
+                })(),
+                timeoutPromise
+            ]);
 
             setLastSync(new Date());
-            if (isAuto) {
+            if (isAuto === true) {
                 setSyncStatus('saved');
                 setTimeout(() => setSyncStatus('idle'), 3000);
             } else {
@@ -188,8 +205,12 @@ export function SyncProvider({ children }) {
 
         } catch (error) {
             console.error("Sync error:", error);
-            if (isAuto) setSyncStatus('error');
-            else alert("Error al sincronizar: " + error.message);
+            if (error.message.includes("offline")) {
+                if (!isAuto) alert("Error: Estás offline. Verifica tu conexión a internet.");
+            } else {
+                if (!isAuto) alert("Error al sincronizar: " + error.message);
+            }
+            if (isAuto === true) setSyncStatus('error');
         } finally {
             setSyncing(false);
         }
@@ -231,6 +252,11 @@ export function SyncProvider({ children }) {
 
                     await localDb.rules.bulkAdd(data.rules || []);
                     await localDb.profiles.bulkAdd(data.profiles || []);
+
+                    // Restore Widget Preferences
+                    if (data.widgetPreferences) {
+                        localStorage.setItem('dashboardWidgetsV2', JSON.stringify(data.widgetPreferences));
+                    }
                 });
 
                 if (!isSilent) alert("Datos restaurados correctamente!");

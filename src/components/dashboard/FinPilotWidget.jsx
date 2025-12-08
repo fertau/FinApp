@@ -1,91 +1,90 @@
-import React, { useMemo } from 'react';
-import { Sparkles, TrendingUp, TrendingDown, Calendar, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, AlertCircle, Key, RefreshCw } from 'lucide-react';
+import { GeminiService } from '../../services/GeminiService';
 
-export default function FinPilotWidget({ transactions, exchangeRate }) {
-    const insights = useMemo(() => {
-        const results = [];
-        if (!transactions || transactions.length === 0) return results;
+export default function FinPilotWidget({ transactions, apiKey }) {
+    const [insights, setInsights] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-        // 1. Recurring Expenses Detection (Simple Heuristic)
-        // Group by description (normalized)
-        const groups = {};
-        transactions.forEach(t => {
-            if (t.type !== 'expense' && t.type !== 'REAL_EXPENSE') return;
-            const key = t.description.toLowerCase().trim();
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(t);
-        });
+    useEffect(() => {
+        if (apiKey && transactions && transactions.length > 0) {
+            fetchInsights();
+        }
+    }, [apiKey, transactions]);
 
-        Object.entries(groups).forEach(([desc, group]) => {
-            if (group.length >= 2) {
-                // Check if they are roughly monthly
-                // Sort by date
-                const sorted = group.sort((a, b) => new Date(b.date) - new Date(a.date));
-                const latest = sorted[0];
-                const amount = Math.abs(latest.amount);
+    const fetchInsights = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await GeminiService.generateInsights(transactions, apiKey);
+            setInsights(data);
+        } catch (err) {
+            console.error("Error fetching insights:", err);
+            setError("No se pudieron generar insights. Verifica tu API Key.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-                // If the last transaction was recent (last 45 days)
-                const daysSinceLast = (new Date() - new Date(latest.date)) / (1000 * 60 * 60 * 24);
-                if (daysSinceLast < 45) {
-                    results.push({
-                        type: 'subscription',
-                        title: 'Posible Suscripción',
-                        message: `Detectamos pagos recurrentes a "${latest.description}" de $${amount.toFixed(0)}.`,
-                        icon: <Calendar size={18} />,
-                        color: 'var(--color-accent-primary)'
-                    });
-                }
-            }
-        });
-
-        // 2. Trend Analysis (This Month vs Last Month)
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-
-        let currentTotal = 0;
-        let lastTotal = 0;
-
-        transactions.forEach(t => {
-            if (t.type !== 'expense' && t.type !== 'REAL_EXPENSE') return;
-            const d = new Date(t.date); // Assuming date format is parseable or we need to parse it manually if dd/mm/yyyy
-            // Our dates are usually dd/mm/yy or dd-mm-yy. Let's assume standard format for now or use a helper if needed.
-            // Actually, let's just use string matching for simplicity if format is consistent, 
-            // but parsing is safer. 
-            // Assuming ISO or standard format in DB? 
-            // In ImportReview we saw "23-Oct-25". That's hard to parse directly.
-            // Let's skip complex date parsing for this MVP step and assume we can parse it.
-            // If date parsing fails, this part might be skipped.
-        });
-
-        // Limit to top 5 insights
-        return results.slice(0, 5);
-    }, [transactions]);
+    if (!apiKey) {
+        return (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)' }}>
+                <Key size={32} style={{ marginBottom: '1rem', color: 'var(--color-accent-primary)' }} />
+                <p style={{ fontWeight: 500, marginBottom: '0.5rem' }}>Requiere API Key</p>
+                <p style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Configura tu llave de Gemini para recibir sugerencias inteligentes.</p>
+                <button
+                    onClick={() => document.querySelector('button[title="Settings"]')?.click() || alert("Ve a Configuración > Inteligencia Artificial")}
+                    style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--color-bg-tertiary)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.875rem' }}
+                >
+                    Ir a Configuración
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <Sparkles size={18} style={{ color: 'var(--color-accent-primary)' }} />
-                <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Sugerencias FinPilot</h4>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={18} style={{ color: 'var(--color-accent-primary)' }} />
+                    <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Sugerencias FinPilot</h4>
+                </div>
+                <button onClick={fetchInsights} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)' }}>
+                    <RefreshCw size={14} className={loading ? 'spin' : ''} />
+                </button>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {insights.length > 0 ? (
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)' }}>
+                        Analizando gastos...
+                    </div>
+                ) : error ? (
+                    <div style={{ padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
+                        {error}
+                    </div>
+                ) : insights.length > 0 ? (
                     insights.map((insight, i) => (
                         <div key={i} style={{
                             padding: '1rem',
                             backgroundColor: 'var(--color-bg-primary)',
                             borderRadius: 'var(--radius-md)',
-                            borderLeft: `4px solid ${insight.color}`,
+                            borderLeft: `4px solid ${insight.type === 'warning' ? '#ef4444' : insight.type === 'success' ? '#10b981' : 'var(--color-accent-primary)'}`,
                             boxShadow: 'var(--shadow-sm)'
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', color: insight.color, fontWeight: 600, fontSize: '0.875rem' }}>
-                                {insight.icon}
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
                                 {insight.title}
                             </div>
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                                 {insight.message}
                             </p>
+                            {insight.proposal && (
+                                <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <AlertCircle size={12} />
+                                    Propuesta: {insight.proposal}
+                                </div>
+                            )}
                         </div>
                     ))
                 ) : (
@@ -94,6 +93,10 @@ export default function FinPilotWidget({ transactions, exchangeRate }) {
                     </div>
                 )}
             </div>
+            <style>{`
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

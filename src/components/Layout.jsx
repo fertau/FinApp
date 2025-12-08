@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Receipt, PieChart as PieChartIcon, UploadCloud, Settings as SettingsIcon, Menu, X, FileText, Calendar, Cloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Receipt, Bot, UploadCloud, Settings as SettingsIcon, Menu, X, FileText, Calendar, Cloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useSync } from '../context/SyncContext';
 
 const SyncStatusIndicator = () => {
@@ -113,8 +113,8 @@ export default function Layout({ children, activeTab, onTabChange }) {
                         onClick={() => onTabChange('records')}
                     />
                     <SidebarItem
-                        icon={PieChartIcon}
-                        label="Análisis"
+                        icon={Bot}
+                        label="FinPilot AI"
                         active={activeTab === 'analytics'}
                         onClick={() => onTabChange('analytics')}
                     />
@@ -154,7 +154,7 @@ export default function Layout({ children, activeTab, onTabChange }) {
                     <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
                         {activeTab === 'dashboard' && 'Panel Principal'}
                         {activeTab === 'records' && 'Registros'}
-                        {activeTab === 'analytics' && 'Análisis'}
+                        {activeTab === 'analytics' && 'FinPilot AI'}
 
                         {activeTab === 'imports' && 'Importar'}
                         {activeTab === 'settings' && 'Configuración'}

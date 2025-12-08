@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
-import { CreditCard, Wallet, Plus, Trash2 } from 'lucide-react';
+import { CreditCard, Wallet, Plus, Trash2, Edit2, Check, X, Landmark, Smartphone, Banknote } from 'lucide-react';
 
 export default function PaymentMethodManager({ profileId }) {
     const paymentMethods = useLiveQuery(
@@ -11,6 +11,67 @@ export default function PaymentMethodManager({ profileId }) {
 
     const [isCreating, setIsCreating] = useState(false);
     const [newMethod, setNewMethod] = useState({ name: '', type: 'credit_card', currency: 'ARS' });
+
+    // Editing State
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editType, setEditType] = useState('credit_card');
+
+    const startEditing = (pm) => {
+        setEditingId(pm.id);
+        setEditName(pm.name);
+        setEditType(pm.type || 'credit_card');
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditName('');
+    };
+
+    const handleUpdate = async (id) => {
+        if (!editName.trim()) return;
+
+        const pm = paymentMethods.find(p => p.id === id);
+        if (!pm) return;
+
+        const oldName = pm.name;
+        const newName = editName.trim();
+        const newType = editType;
+
+        if (oldName === newName && pm.type === newType) {
+            cancelEditing();
+            return;
+        }
+
+        // 1. Update Payment Method
+        await db.paymentMethods.update(id, { name: newName, type: newType });
+
+        // 2. Batch Update Transactions
+        // Find all transactions with this payment method and profile
+        const affectedTransactions = await db.transactions
+            .where('profileId').equals(profileId)
+            .filter(t => t.paymentMethod === oldName)
+            .toArray();
+
+        if (affectedTransactions.length > 0) {
+            const updates = affectedTransactions.map(t => ({
+                key: t.id,
+                changes: { paymentMethod: newName }
+            }));
+
+            // Dexie doesn't have a simple bulkUpdate for non-primary keys without fetching first or using modify
+            // .modify() is good but we need to be careful with the query.
+            // Let's use the collection modify
+            await db.transactions
+                .where('profileId').equals(profileId)
+                .filter(t => t.paymentMethod === oldName)
+                .modify({ paymentMethod: newName });
+
+            console.log(`Updated ${affectedTransactions.length} transactions from "${oldName}" to "${newName}"`);
+        }
+
+        cancelEditing();
+    };
 
     const handleAdd = async (e) => {
         e.preventDefault();
@@ -24,6 +85,17 @@ export default function PaymentMethodManager({ profileId }) {
     const handleDelete = async (id) => {
         if (window.confirm('¿Eliminar medio de pago?')) {
             await db.paymentMethods.delete(id);
+        }
+    };
+
+    const getIcon = (type) => {
+        switch (type) {
+            case 'credit_card': return <CreditCard size={16} />;
+            case 'debit_card': return <CreditCard size={16} />; // Maybe add a badge or different color? Or just same icon.
+            case 'cash': return <Banknote size={16} />;
+            case 'bank_account': return <Landmark size={16} />;
+            case 'app': return <Smartphone size={16} />;
+            default: return <Wallet size={16} />;
         }
     };
 
@@ -43,17 +115,54 @@ export default function PaymentMethodManager({ profileId }) {
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--color-bg-tertiary)'
                     }}>
-                        {pm.type === 'cash' ? <Wallet size={16} /> : <CreditCard size={16} />}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 500 }}>{pm.name}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>{pm.currency}</span>
-                        </div>
-                        <button
-                            onClick={() => handleDelete(pm.id)}
-                            style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: '0.5rem' }}
-                        >
-                            <Trash2 size={14} />
-                        </button>
+                        {getIcon(pm.type)}
+
+                        {editingId === pm.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    style={{ padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--color-accent-primary)', width: '120px' }}
+                                    autoFocus
+                                />
+                                <select
+                                    value={editType}
+                                    onChange={(e) => setEditType(e.target.value)}
+                                    style={{ padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--color-accent-primary)', fontSize: '0.8rem' }}
+                                >
+                                    <option value="credit_card">Crédito</option>
+                                    <option value="debit_card">Débito</option>
+                                    <option value="cash">Efectivo</option>
+                                    <option value="bank_account">Banco</option>
+                                    <option value="app">App</option>
+                                </select>
+                                <button onClick={() => handleUpdate(pm.id)} style={{ color: 'var(--color-success)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><Check size={14} /></button>
+                                <button onClick={cancelEditing} style={{ color: 'var(--color-error)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={14} /></button>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: 500 }}>{pm.name}</span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>{pm.currency}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', marginLeft: '0.5rem' }}>
+                                    <button
+                                        onClick={() => startEditing(pm)}
+                                        style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                        title="Renombrar"
+                                    >
+                                        <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(pm.id)}
+                                        style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                        title="Eliminar"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>
