@@ -27,6 +27,16 @@ const SyncStatusIndicator = () => {
             text = 'Guardado';
             color = 'var(--color-success)';
             break;
+        case 'restoring':
+            icon = <Loader2 size={18} className="spin" />;
+            text = 'Restaurando...';
+            color = 'var(--color-accent-primary)';
+            break;
+        case 'restored':
+            icon = <CheckCircle size={18} />;
+            text = 'Restaurado';
+            color = 'var(--color-success)';
+            break;
         case 'error':
             icon = <AlertCircle size={18} />;
             text = 'Error al guardar';

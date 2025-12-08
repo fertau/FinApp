@@ -92,7 +92,7 @@ export function SyncProvider({ children }) {
         // But simpler: 'useLiveQuery' triggers on changes. We can't easily hook into that globally for *any* change without re-rendering.
 
         // Let's assume we can attach a hook to all tables.
-        const tables = ['transactions', 'categories', 'members', 'paymentMethods', 'rules', 'profiles', 'cardMappings'];
+        const tables = ['transactions', 'categories', 'members', 'paymentMethods', 'rules', 'profiles', 'cardMappings', 'categorizationRules', 'recurringExpenses'];
 
         const hook = () => {
             handleChange();
@@ -158,6 +158,8 @@ export function SyncProvider({ children }) {
                     const paymentMethods = await localDb.paymentMethods.toArray();
                     const rules = await localDb.rules.toArray();
                     const profiles = await localDb.profiles.toArray();
+                    const categorizationRules = await localDb.categorizationRules?.toArray() || [];
+                    const recurringExpenses = await localDb.recurringExpenses?.toArray() || [];
 
                     // 2. Prepare Cloud Payload
                     const userRef = doc(db, 'users', userId);
@@ -185,6 +187,8 @@ export function SyncProvider({ children }) {
                         paymentMethods: sanitize(paymentMethods),
                         rules: sanitize(rules),
                         profiles: sanitize(profiles),
+                        categorizationRules: sanitize(categorizationRules),
+                        recurringExpenses: sanitize(recurringExpenses),
                         widgetPreferences: widgetPrefs ? JSON.parse(widgetPrefs) : null,
                         timestamp: new Date().toISOString()
                     };
@@ -199,9 +203,8 @@ export function SyncProvider({ children }) {
             if (isAuto === true) {
                 setSyncStatus('saved');
                 setTimeout(() => setSyncStatus('idle'), 3000);
-            } else {
-                alert("Sincronización (Respaldo) completada con éxito!");
             }
+            // Removed alert for better UX
 
         } catch (error) {
             console.error("Sync error:", error);
@@ -218,9 +221,11 @@ export function SyncProvider({ children }) {
 
     const restoreData = async (isSilent = false) => {
         if (!user || !db) return;
+        // Removed confirmation dialog for auto-restore UX improvement
         if (!isSilent && !window.confirm("Esto SOBREESCRIBIRÁ tus datos locales con la copia de la nube. ¿Estás seguro?")) return;
 
         setSyncing(true);
+        if (isSilent) setSyncStatus('restoring');
         try {
             const userId = user.uid;
             const backupRef = doc(db, 'users', userId, 'backups', 'latest');
@@ -235,9 +240,12 @@ export function SyncProvider({ children }) {
                     await localDb.categories.clear();
                     await localDb.members.clear();
                     await localDb.paymentMethods.clear();
-                    // await localDb.owners.clear(); // Deprecated
                     await localDb.rules.clear();
                     await localDb.profiles.clear();
+
+                    // Clear new tables if they exist
+                    if (localDb.categorizationRules) await localDb.categorizationRules.clear();
+                    if (localDb.recurringExpenses) await localDb.recurringExpenses.clear();
 
                     console.log("Restoring transactions:", data.transactions?.length);
                     await localDb.transactions.bulkAdd(data.transactions || []);
@@ -249,9 +257,16 @@ export function SyncProvider({ children }) {
                     await localDb.members.bulkAdd(membersToRestore);
 
                     await localDb.paymentMethods.bulkAdd(data.paymentMethods || []);
-
                     await localDb.rules.bulkAdd(data.rules || []);
                     await localDb.profiles.bulkAdd(data.profiles || []);
+
+                    // Restore new tables
+                    if (localDb.categorizationRules && data.categorizationRules) {
+                        await localDb.categorizationRules.bulkAdd(data.categorizationRules);
+                    }
+                    if (localDb.recurringExpenses && data.recurringExpenses) {
+                        await localDb.recurringExpenses.bulkAdd(data.recurringExpenses);
+                    }
 
                     // Restore Widget Preferences
                     if (data.widgetPreferences) {
@@ -259,15 +274,24 @@ export function SyncProvider({ children }) {
                     }
                 });
 
-                if (!isSilent) alert("Datos restaurados correctamente!");
+                // Removed alert for better UX
+                if (isSilent) {
+                    setSyncStatus('restored');
+                    setTimeout(() => setSyncStatus('idle'), 3000);
+                }
                 window.location.reload();
             } else {
                 console.log("No backup found at path:", backupRef.path);
-                if (!isSilent) alert("No se encontró copia de seguridad en la nube.");
+                // No alert for silent restore
             }
         } catch (error) {
             console.error("Restore error:", error);
-            if (!isSilent) alert("Error al restaurar: " + error.message);
+            if (isSilent) {
+                setSyncStatus('error');
+                setTimeout(() => setSyncStatus('idle'), 5000);
+            } else {
+                alert("Error al restaurar: " + error.message);
+            }
         } finally {
             setSyncing(false);
         }
