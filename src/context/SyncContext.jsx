@@ -173,8 +173,9 @@ export function SyncProvider({ children }) {
                     // 3. Transactions - Backup
                     const sanitize = (obj) => JSON.parse(JSON.stringify(obj));
 
-                    // Get Widget Preferences
+                    // Get Widget Preferences and Settings
                     const widgetPrefs = localStorage.getItem('dashboardWidgetsV2');
+                    const appSettings = localStorage.getItem('financeSettings');
 
                     const backupData = {
                         transactions: sanitize(transactions),
@@ -186,6 +187,7 @@ export function SyncProvider({ children }) {
                         categorizationRules: sanitize(categorizationRules),
                         recurringExpenses: sanitize(recurringExpenses),
                         widgetPreferences: widgetPrefs ? JSON.parse(widgetPrefs) : null,
+                        settings: appSettings ? JSON.parse(appSettings) : null,
                         timestamp: new Date().toISOString()
                     };
 
@@ -267,6 +269,11 @@ export function SyncProvider({ children }) {
                     // Restore Widget Preferences
                     if (data.widgetPreferences) {
                         localStorage.setItem('dashboardWidgetsV2', JSON.stringify(data.widgetPreferences));
+                    }
+
+                    // Restore Settings (including API Key)
+                    if (data.settings) {
+                        localStorage.setItem('financeSettings', JSON.stringify(data.settings));
                     }
                 });
 
