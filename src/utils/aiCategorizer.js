@@ -7,7 +7,7 @@ export async function categorizeWithAI(transactions, categories, apiKey) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Filter only uncategorized transactions to save tokens
     const uncategorized = transactions.filter(t => !t.category || t.category === 'Uncategorized');
