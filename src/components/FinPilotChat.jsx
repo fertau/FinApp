@@ -104,7 +104,7 @@ export default function FinPilotChat({ transactions }) {
 
         // 4. Call Gemini
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const result = await model.generateContent([systemPrompt, query]);
         const response = await result.response;
