@@ -8,7 +8,7 @@ import { ExchangeRateService } from '../services/ExchangeRateService';
 import { getStartOfMonth, getEndOfMonth } from '../utils/dateUtils';
 import { formatCurrency } from '../utils/currencyUtils';
 
-export default function Dashboard({ transactions, exchangeRate, categories, subcategories, paymentMethods, apiKey }) {
+export default function Dashboard({ transactions, exchangeRate, categories, subcategories, paymentMethods, settings }) {
     // Default widgets
     const DEFAULT_WIDGETS = ['accounts_summary', 'finpilot_suggestions', 'category_chart', 'monthly_flow_chart', 'owner_chart', 'top_expenses_chart'];
 
@@ -443,7 +443,7 @@ export default function Dashboard({ transactions, exchangeRate, categories, subc
                                             categories={categories}
                                             subcategories={subcategories}
                                             currency={displayCurrency} // Pass display currency
-                                            apiKey={apiKey}
+                                            settings={settings}
                                         />
                                     </ErrorBoundary>
                                 </div>

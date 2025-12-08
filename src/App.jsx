@@ -355,7 +355,7 @@ function AppContent() {
               categories={categories}
               subcategories={subcategories}
               paymentMethods={paymentMethods}
-              apiKey={settings.geminiApiKey}
+              settings={settings}
             />
           </div>
         );

@@ -2,32 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, AlertCircle, Key, RefreshCw } from 'lucide-react';
 import { GeminiService } from '../../services/GeminiService';
 
-export default function FinPilotWidget({ transactions, apiKey }) {
+export default function FinPilotWidget({ transactions, settings }) {
     const [insights, setInsights] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
-        if (apiKey && transactions && transactions.length > 0) {
-            fetchInsights();
+        // Auto-generate insights if API key is available
+        if (settings?.geminiApiKey && transactions && transactions.length > 0) {
+            generateInsights();
         }
-    }, [apiKey, transactions]);
+    }, [settings?.geminiApiKey, transactions]);
 
-    const fetchInsights = async () => {
+    const generateInsights = async () => {
         setLoading(true);
-        setError(null);
         try {
-            const data = await GeminiService.generateInsights(transactions, apiKey);
+            const data = await GeminiService.generateInsights(transactions, settings.geminiApiKey);
             setInsights(data);
-        } catch (err) {
-            console.error("Error fetching insights:", err);
-            setError("No se pudieron generar insights. Verifica tu API Key.");
+        } catch (error) {
+            console.error('Error generating insights:', error);
+            setInsights([{ title: 'Error', message: 'No se pudieron generar insights. Verifica tu API Key.', type: 'error' }]);
         } finally {
             setLoading(false);
         }
     };
 
-    if (!apiKey) {
+    if (!settings?.geminiApiKey) {
         return (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)' }}>
                 <Key size={32} style={{ marginBottom: '1rem', color: 'var(--color-accent-primary)' }} />
