@@ -16,6 +16,7 @@ export function SyncProvider({ children }) {
     const [syncing, setSyncing] = useState(false);
     const [lastSync, setLastSync] = useState(null);
     const [syncStatus, setSyncStatus] = useState('idle'); // idle, pending, saving, saved, error
+    const [hasRestoredThisSession, setHasRestoredThisSession] = useState(false);
 
     useEffect(() => {
         if (!auth) {
@@ -26,33 +27,28 @@ export function SyncProvider({ children }) {
             setUser(currentUser);
             setLoading(false);
 
-            // Auto-restore check
-            if (currentUser) {
+            // Auto-restore check - ONLY if DB is empty and haven't restored this session
+            if (currentUser && !hasRestoredThisSession) {
                 try {
-                    // 1. Check if local DB is empty
-                    // 1. Check if local DB is effectively empty (no transactions)
-                    // We ignore profiles/categories as they are seeded by default
+                    // Check if local DB is empty (no transactions)
                     const txCount = await localDb.transactions.count();
                     const isEmpty = txCount === 0;
 
-                    // 2. Check if cloud backup exists
-                    const backupRef = doc(db, 'users', currentUser.uid, 'backups', 'latest');
-                    const docSnap = await getDoc(backupRef);
+                    // ONLY restore if DB is truly empty
+                    if (isEmpty) {
+                        // Check if cloud backup exists
+                        const backupRef = doc(db, 'users', currentUser.uid, 'backups', 'latest');
+                        const docSnap = await getDoc(backupRef);
 
-                    if (docSnap.exists()) {
-                        if (isEmpty) {
-                            // Scenario A: Empty local -> Auto Restore
-                            console.log("Auto-restoring from cloud (Empty Local)...");
+                        if (docSnap.exists()) {
+                            console.log("Auto-restoring from cloud (Empty Local DB)...");
                             await restoreData(true);
+                            setHasRestoredThisSession(true);
                         } else {
-                            // Scenario B: Data exists.
-                            // User requested automatic restore without dialog.
-                            // We will check if the backup is newer or just do it?
-                            // To be safe but compliant: We'll just do it silently.
-                            // Ideally we should check timestamps, but for now let's trust the user wants this.
-                            console.log("Auto-restoring from cloud (Local data exists)...");
-                            await restoreData(true);
+                            console.log("No cloud backup found");
                         }
+                    } else {
+                        console.log("Local DB has data, skipping auto-restore. Transaction count:", txCount);
                     }
                 } catch (e) {
                     console.error("Error checking for auto-restore:", e);
