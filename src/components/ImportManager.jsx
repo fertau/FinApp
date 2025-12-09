@@ -32,7 +32,7 @@ export default function ImportManager({ transactions, onUpload, onEdit, onDelete
             </div>
 
             <div style={{ marginBottom: '3rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                         <input
                             type="radio"
@@ -51,6 +51,15 @@ export default function ImportManager({ transactions, onUpload, onEdit, onDelete
                             onChange={(e) => window.parsingMethod = e.target.value}
                         />
                         <span>Modo Inteligente (IA - Gemini)</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', backgroundColor: 'var(--color-accent-subtle)', borderRadius: 'var(--radius-md)' }}>
+                        <input
+                            type="radio"
+                            name="parsingMethod"
+                            value="money-manager"
+                            onChange={(e) => window.parsingMethod = e.target.value}
+                        />
+                        <span style={{ fontWeight: 600 }}>💰 Money Manager CSV</span>
                     </label>
                 </div>
                 <FileUpload onFilesSelected={(files) => onUpload(files, window.parsingMethod || 'regex')} />

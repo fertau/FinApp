@@ -20,7 +20,7 @@ export default function FileUpload({ onFilesSelected }) {
         setIsDragging(false);
 
         const droppedFiles = Array.from(e.dataTransfer.files).filter(
-            file => file.type === 'application/pdf'
+            file => file.type === 'application/pdf' || file.type === 'text/csv' || file.name.endsWith('.csv')
         );
 
         if (droppedFiles.length > 0) {
@@ -31,7 +31,7 @@ export default function FileUpload({ onFilesSelected }) {
 
     const handleFileInput = useCallback((e) => {
         const selectedFiles = Array.from(e.target.files).filter(
-            file => file.type === 'application/pdf'
+            file => file.type === 'application/pdf' || file.type === 'text/csv' || file.name.endsWith('.csv')
         );
 
         if (selectedFiles.length > 0) {
@@ -63,7 +63,7 @@ export default function FileUpload({ onFilesSelected }) {
             >
                 <input
                     type="file"
-                    accept=".pdf"
+                    accept=".pdf,.csv"
                     multiple
                     onChange={handleFileInput}
                     style={{
@@ -95,7 +95,7 @@ export default function FileUpload({ onFilesSelected }) {
                         or click to browse files
                     </p>
                     <p style={{ fontSize: '0.875rem', color: 'var(--color-text-tertiary)' }}>
-                        Supports PDF files only. Processed locally.
+                        Supports PDF and CSV files. Processed locally.
                     </p>
                 </div>
             </div>

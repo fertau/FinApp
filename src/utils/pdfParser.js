@@ -6,6 +6,12 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export async function extractTextFromPdf(file) {
+    // Handle CSV files directly
+    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        return await file.text();
+    }
+
+    // Handle PDF files
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
